@@ -42,6 +42,17 @@ stages:
           echo python --version
     -   bash: |
           echo mvn -version
+          - bash : |
+              1s -R '$(Build.ArtifactStagingDirectory)'
+          - task: CopyFiles@2
+            inputs:
+            SourceFolder: '$(System.DefaultworkingDirectory)'
+            Contents: |
+                  **/*.yaml
+                  **/*.tf
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    -   bash: |
+          1s -R '$(Build.ArtifactStagingDirectory)'
        
 
   # - job: SecondJob
