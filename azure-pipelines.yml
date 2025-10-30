@@ -6,62 +6,76 @@
 trigger:
 - main
 
+# pool:
+#   vmImage: 'ubuntu-latest'
+strategy:
+  matrix:
+    linux:
+      operatingSystem: 'ubuntu-latest'
+    mac:
+      operatingSystem: 'macos-latest'
 pool:
-  vmImage: ubuntu-latest
+  vmImage: $(operatingSystem)
+steps:
+- script: echo Running on $(operatingSystem)
+  displayName: 'Run a one-line script'
 
-stages:
-- stage: build
-  jobs:
-  - job: FirstJob
-    steps:
-    - bash: |
-        echo "Build FirstJob"
 
-    - bash: |
-        echo $(PipelineLevelVariable)
+        
 
-    - bash: |
-        echo $(Build.BuildNumber)
+# stages:
+# - stage: build
+#   jobs:
+#   - job: FirstJob
+#     steps:
+#     - bash: |
+#         echo "Build FirstJob"
 
-    - bash: |
-        echo $(Build.BuildId)
+#     - bash: |
+#         echo $(PipelineLevelVariable)
 
-    - bash: |
-        echo $(Build.SourceBranchName)
+#     - bash: |
+#         echo $(Build.BuildNumber)
 
-    - bash: |
-        echo $(Build.SourcesDirectory)
+#     - bash: |
+#         echo $(Build.BuildId)
 
-    - bash: |
-        echo $(System.DefaultWorkingDirectory)
+#     - bash: |
+#         echo $(Build.SourceBranchName)
 
-    - bash: |
-        ls -R $(System.DefaultWorkingDirectory)
+#     - bash: |
+#         echo $(Build.SourcesDirectory)
 
-    - bash: |
-        echo $(Build.ArtifactStagingDirectory)
+#     - bash: |
+#         echo $(System.DefaultWorkingDirectory)
 
-    - bash: |
-        java -version
-        node --version
-        python3 --version
-        mvn -version
+#     - bash: |
+#         ls -R $(System.DefaultWorkingDirectory)
 
-    - bash: |
-        ls -R '$(Build.ArtifactStagingDirectory)'
+#     - bash: |
+#         echo $(Build.ArtifactStagingDirectory)
 
-    - task: CopyFiles@2
-      inputs:
-        SourceFolder: '$(System.DefaultWorkingDirectory)'
-        Contents: |
-          **/*.yaml
-          **/*.tf
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    - task: PublishBuildArtifacts@1
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: 'drop'
-        publishLocation: 'Container'
+#     - bash: |
+#         java -version
+#         node --version
+#         python3 --version
+#         mvn -version
+
+#     - bash: |
+#         ls -R '$(Build.ArtifactStagingDirectory)'
+
+#     - task: CopyFiles@2
+#       inputs:
+#         SourceFolder: '$(System.DefaultWorkingDirectory)'
+#         Contents: |
+#           **/*.yaml
+#           **/*.tf
+#         TargetFolder: '$(Build.ArtifactStagingDirectory)'
+#     - task: PublishBuildArtifacts@1
+#       inputs:
+#         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+#         ArtifactName: 'drop'
+#         publishLocation: 'Container'
 
        
 
@@ -99,9 +113,10 @@ stages:
 
 #jobs:
 #- job: job1
-  #steps:
+#  steps:
   #- script: echo job1 -  Hello, world,Changed!
    # displayName: 'Run a one-line script'
+   
   #- script: |
       # echo Add other tasks to build, test, and deploy your project.
       # echo See https://aka.ms/yaml
