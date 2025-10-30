@@ -18,35 +18,43 @@ stages:
         echo Build FirstJob
     -  bash: |  
          echo $(PipelineLevel variable)
-  - job: SecondJob
-    steps:
-    - bash: |
-        echo Build SecondJob
-- stage: Devdeploy
-  variables:
-    environment: Dev
-  jobs:
-  - job: DevdeployJob
-    steps:
-    - bash: |
-        echo Build $(environment)deployJob
-- stage: QAdeploy
-  variables:
-    environment: QA
-  jobs:
-  - job: QAdeployJob
-    steps:
-    - bash: |
-        echo Build $(environment)deployJob
-- stage: Proddeploy
-  variables:
-    environment : Prod
-  jobs:
-  - job: ProddeployJob
-    steps:
-    - bash: |
-        echo Build $(environment)deployJob
-        echo "This is Proddeploy stage"
+         echo $(Build.BuildNumber)
+         echo $(Build.BuildId)
+         echo $(Build.SourceBranchName)
+         echo $(Build.SourcesDirectory)
+         echo $(System.DefaultworkingDirectory)
+         ls -R $(System.DefaultworkingDirectory)
+         echo $(Build.ArtifactStagingDirectory)
+
+  # - job: SecondJob
+  #   steps:
+  #   - bash: |
+  #       echo Build SecondJob
+# - stage: Devdeploy
+#   variables:
+#     environment: Dev
+#   jobs:
+#   - job: DevdeployJob
+#     steps:
+#     - bash: |
+#         echo Build $(environment)deployJob
+# - stage: QAdeploy
+#   variables:
+#     environment: QA
+#   jobs:
+#   - job: QAdeployJob
+#     steps:
+#     - bash: |
+#         echo Build $(environment)deployJob
+# - stage: Proddeploy
+#   variables:
+#     environment : Prod
+#   jobs:
+#   - job: ProddeployJob
+#     steps:
+#     - bash: |
+#         echo Build $(environment)deployJob
+#         echo "This is Proddeploy stage"
 
 # Pipelines > Stages > Jobs > Tasks(Steps)
 
