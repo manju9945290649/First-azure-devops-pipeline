@@ -16,28 +16,36 @@ stages:
     steps:
     - bash: |
         echo Build FirstJob
+    -  bash: |  
+         echo $(PipelineLevel variable)
   - job: SecondJob
     steps:
     - bash: |
         echo Build SecondJob
 - stage: Devdeploy
+  variables:
+    environment: Dev
   jobs:
   - job: DevdeployJob
     steps:
     - bash: |
-        echo Build DevdeployJob
+        echo Build $(environment)deployJob
 - stage: QAdeploy
+  variables:
+    environment: QA
   jobs:
   - job: QAdeployJob
     steps:
     - bash: |
-        echo Build QAdeployJob
+        echo Build $(environment)deployJob
 - stage: Proddeploy
+  variables:
+    environment : Prod
   jobs:
   - job: ProddeployJob
     steps:
     - bash: |
-        echo Build ProddeployJob
+        echo Build $(environment)deployJob
         echo "This is Proddeploy stage"
 
 # Pipelines > Stages > Jobs > Tasks(Steps)
