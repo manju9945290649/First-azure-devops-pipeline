@@ -6,7 +6,7 @@
 trigger:
   branches:
     include:
-       - master
+       - main
 
 resources:
 - repo: self
@@ -31,7 +31,8 @@ stages:
         command: 'buildAndPush'
         dockerfile: '**/Dockerfile'
         tags: |
-          '$(tag)'
+          $(tag)
+          latest
 
 
 
