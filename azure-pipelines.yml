@@ -27,7 +27,7 @@ stages:
       displayName: Build & Push Image
       inputs:
         containerRegistry: 'manju dockerhub'
-        repository: 'manjudocker1/currency-exchange-devops'
+        repository: 'manjunathk165.kmr@gmail.com/currency-exchange-devops'
         command: 'buildAndPush'
         dockerfile: '**/Dockerfile'
         tags: |
