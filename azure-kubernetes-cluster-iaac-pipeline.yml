@@ -13,6 +13,13 @@ steps:
   inputs:
     secureFile: 'azure_rsa.pub'
 
+# 🧩 Install Terraform (Fully Qualified Task)
+- task: JasonBJohnson.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-installer.TerraformInstaller@1
+  displayName: 'Install Terraform'
+  inputs:
+    terraformVersion: '1.6.6'
+
+# 🧩 Run Terraform init
 - task: TerraformCLI@2
   inputs:
     command: 'init'
@@ -30,6 +37,8 @@ steps:
     backendAzureRmContainerName: 'storageacctmanjucontainer'
     backendAzureRmKey: 'kubernetes-dev.tfstate'
     allowTelemetryCollection: true
+
+
 
 
 
