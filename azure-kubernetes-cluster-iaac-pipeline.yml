@@ -22,7 +22,7 @@ steps:
       -var client_secret=$(client_secret)
       -var ssh_public_key=$(publickey.secureFilePath)
     backendType: 'azurerm'
-    backendServiceArm: 'azure-resource-service-manager'
+    backendServiceArm: 'Azure Resource Manager'
     ensureBackend: true
     backendAzureRmResourceGroupName: 'terraform-backend-rg'
     backendAzureRmResourceGroupLocation: 'westeurope'
