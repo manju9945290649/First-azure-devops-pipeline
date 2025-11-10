@@ -24,22 +24,6 @@ steps:
     terraform -version
   displayName: 'Install Terraform Manually'
 
-- task: AzureCLI@2
-  displayName: 'Get AKS Credentials'
-  inputs:
-    azureSubscription: 'azure-resource-service-manager'
-    scriptType: bash
-    scriptLocation: inlineScript
-    inlineScript: |
-      az aks get-credentials \
-        --name k8sCluster \
-        --resource-group kubedev \
-        --admin \
-        --overwrite-existing
-
-      kubectl get nodes
-
-
 # Terraform Init
 - task: TerraformCLI@0
   displayName: 'Terraform Init'
