@@ -14,6 +14,16 @@ steps:
   inputs:
     secureFile: 'azure_rsa.pub'
 
+- script: |
+    echo "Installing Terraform manually..."
+    sudo apt-get update -y
+    sudo apt-get install unzip -y
+    curl -o terraform.zip https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip
+    unzip terraform.zip
+    sudo mv terraform /usr/local/bin/
+    terraform -version
+  displayName: 'Install Terraform Manually'
+
 # Terraform Init
 - task: TerraformCLI@2
   displayName: 'Terraform Init'
@@ -28,7 +38,7 @@ steps:
     # backendAzureRmStorageAccountName: 'storageaccthelloxyz'
     # backendAzureRmContainerName: 'storageaccthellocontainer'
     backendAzureRmKey: 'kubernetes-dev.tfstate'
-    allowTelemetryCollection: true
+    # allowTelemetryCollection: true
 
 # Terraform Apply
 - task: TerraformCLI@2
@@ -48,7 +58,7 @@ steps:
 #   inputs:
 #     command: 'destroy'
 #     workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
-#     environmentServiceName: 'azure-resource-manager-service-connection'
+#     environmentServiceName: 'azure-resource-service-manager'
 #     commandOptions: >
 #       -auto-approve
 #       -var client_id=$(client_id)
