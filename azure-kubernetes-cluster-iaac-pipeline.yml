@@ -26,7 +26,7 @@ steps:
 
 # Terraform Init
 
-- task: TerraformCLI@0
+- task: TerraformCLI@2
   displayName: 'Terraform Init'
   inputs:
     command: 'init'
@@ -42,7 +42,7 @@ steps:
     # allowTelemetryCollection: true
 
 # Terraform Apply
-- task: TerraformCLI@0
+- task: TerraformCLI@2
   displayName: 'Terraform Apply'
   inputs:
     command: 'apply'
@@ -59,7 +59,7 @@ steps:
 #   inputs:
 #     command: 'destroy'
 #     workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
-#     environmentServiceName: 'azure-resource-manager-service-connection'
+#     environmentServiceName: 'azure-resource-service-manager'
 #     commandOptions: >
 #       -auto-approve
 #       -var client_id=$(client_id)
