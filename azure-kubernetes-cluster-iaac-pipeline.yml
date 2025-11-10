@@ -13,31 +13,31 @@ steps:
   inputs:
     secureFile: 'azure_rsa.pub'
 
-# 🧩 Install Terraform (Fully Qualified Task)
+# Install Terraform
 - task: JasonBJohnson.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-installer.TerraformInstaller@1
   displayName: 'Install Terraform'
+
+# Terraform init
+- task: TerraformCLI@2
+  displayName: 'Terraform Init'
   inputs:
-    terraformVersion: '1.6.6'
+    command: 'init'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
+    backendType: 'azurerm'
+    backendServiceArm: 'azure-resource-service-manager'
+    backendAzureRmTenantId: 'aa227e14-bd54-40ea-be71-c11b5ef4f13c'
+    # For TerraformCLI@2, these backend parameters MUST come from your Terraform backend block, 
+    # NOT the pipeline YAML (Azure DevOps removed them from inputs)
 
-# 🧩 Azure CLI login
-- task: AzureCLI@2
-  displayName: 'Azure CLI: login with service connection'
+# Terraform apply
+- task: TerraformCLI@2
+  displayName: 'Terraform Apply'
   inputs:
-    azureSubscription: 'azure-resource-service-manager'
-    scriptType: 'bash'
-    scriptLocation: 'inlineScript'
-    inlineScript: |
-      bash "$(System.DefaultWorkingDirectory)/scripts/ensure-backend-and-run-terraform.sh" "$(storageAccountName)" "$(client_id)" "$(client_secret)" "$(publickey.secureFilePath)" "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
-
-# 🧩 Run Terraform init
-
-# Terraform commands are executed in the AzureCLI task above so az login is available
-
-
-
-
-
-
-
-
-
+    command: 'apply'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
+    environmentServiceName: 'azure-resource-service-manager'
+    commandOptions: >
+      -var client_id=$(client_id)
+      -var client_secret=$(client_secret)
+      -var ssh_public_key=$(publickey.secureFilePath)
+    
