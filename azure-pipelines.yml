@@ -51,19 +51,42 @@ steps:
         exit 1
       fi
 
+      # Ensure backend storage account and container exist (create if missing)
+      SA_NAME="storageacctmanju17099"
+      SA_RG="terraform-backend-rg"
+      SA_LOCATION="westeurope"
+
+      echo "Checking storage account $SA_NAME in resource group $SA_RG"
+      SA_ID=$(az storage account show --name "$SA_NAME" --resource-group "$SA_RG" --query id -o tsv 2>/dev/null || true)
+      if [ -z "$SA_ID" ]; then
+        echo "Storage account $SA_NAME not found in resource group $SA_RG. Attempting to create it..."
+        # create resource group if missing
+        if [ "$(az group exists -n $SA_RG)" != "true" ]; then
+          echo "Resource group $SA_RG not found. Creating resource group $SA_RG in $SA_LOCATION"
+          az group create --name "$SA_RG" --location "$SA_LOCATION" || { echo "Failed to create resource group $SA_RG"; exit 1; }
+        fi
+        az storage account create --name "$SA_NAME" --resource-group "$SA_RG" --location "$SA_LOCATION" --sku Standard_LRS --kind StorageV2 || { echo "Failed to create storage account $SA_NAME"; exit 1; }
+        SA_ID=$(az storage account show --name "$SA_NAME" --resource-group "$SA_RG" --query id -o tsv)
+        echo "Created storage account: $SA_ID"
+        # Create container using login auth (SP must have rights)
+        echo "Creating blob container 'terraform-state' using AD auth (may require role assignment)"
+        az storage container create --account-name "$SA_NAME" --name terraform-state --auth-mode login || echo "Warning: failed to create container with AD auth. It may already exist or role assignment is required."
+      else
+        echo "Found storage account: $SA_ID"
+      fi
+
+      # Ensure service principal has Storage Blob Data Contributor role on the storage account
+      if [ -n "$SA_ID" ]; then
+        echo "Ensuring service principal $ARM_CLIENT_ID has 'Storage Blob Data Contributor' on $SA_ID"
+        az role assignment create --assignee "$ARM_CLIENT_ID" --role "Storage Blob Data Contributor" --scope "$SA_ID" 2>/dev/null || echo "Warning: role assignment may have failed or already exists. Ensure the caller has permission to assign roles."
+      fi
+
       echo 'Running terraform init'
       cd "$WORKDIR"
-      terraform init \
-    -backend-config="resource_group_name=terraform-backend-rg" \
-    -backend-config="storage_account_name=storageacctmanju17099" \
-    -backend-config="container_name=terraform-state" \
-        -backend-config="key=kubernetes-dev.tfstate"
+      terraform init -backend-config="resource_group_name=terraform-backend-rg" -backend-config="storage_account_name=storageacctmanju17099" -backend-config="container_name=terraform-state" -backend-config="key=kubernetes-dev.tfstate"
 
       echo 'Running terraform apply'
-      terraform apply -auto-approve \
-        -var "client_id=$(client_id)" \
-        -var "client_secret=$(client_secret)" \
-        -var "ssh_public_key=$(publickey.secureFilePath)"
+      terraform apply -auto-approve -var "client_id=$(client_id)" -var "client_secret=$(client_secret)" -var "ssh_public_key=$(publickey.secureFilePath)"
 
 
 
