@@ -36,7 +36,7 @@ steps:
   inputs:
     command: 'apply'
     workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
-    environmentServiceName: 'azure-resource-manager-service'
+    environmentServiceName: 'azure-resource-service-manager'
     commandOptions: >
       -var client_id=$(client_id)
       -var client_secret=$(client_secret)
