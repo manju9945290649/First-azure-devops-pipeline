@@ -25,7 +25,7 @@ steps:
   displayName: 'Install Terraform Manually'
 
 # Terraform Init
-- task: TerraformCLI@2
+- task: TerraformCLI@0
   displayName: 'Terraform Init'
   inputs:
     command: 'init'
@@ -41,7 +41,7 @@ steps:
     # allowTelemetryCollection: true
 
 # Terraform Apply
-- task: TerraformCLI@2
+- task: TerraformCLI@0
   displayName: 'Terraform Apply'
   inputs:
     command: 'apply'
