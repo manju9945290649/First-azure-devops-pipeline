@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Args:
+#  $1 - storage account name
+#  $2 - client_id (service principal)
+#  $3 - client_secret (service principal)
+#  $4 - path to public key secure file (optional)
+#  $5 - working directory for terraform (full path)
+
+SA_NAME="${1:-}"
+ARM_CLIENT_ID="${2:-}"
+ARM_CLIENT_SECRET="${3:-}"
+PUBLICKEY_PATH="${4:-}"
+WORKDIR="${5:-}"
+
+if [ -z "$SA_NAME" ]; then
+  echo "ERROR: storage account name (arg1) is required"
+  exit 2
+fi
+if [ -z "$ARM_CLIENT_ID" ] || [ -z "$ARM_CLIENT_SECRET" ]; then
+  echo "ERROR: client_id and client_secret (arg2 and arg3) are required"
+  exit 2
+fi
+if [ -z "$WORKDIR" ]; then
+  echo "ERROR: working directory (arg5) is required"
+  exit 2
+fi
+
+echo "Azure login info (account):"
+az account show
+
+echo "Configuring ARM environment variables for Terraform (service principal)"
+export ARM_CLIENT_ID="$ARM_CLIENT_ID"
+export ARM_CLIENT_SECRET="$ARM_CLIENT_SECRET"
+export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+export ARM_TENANT_ID="$(az account show --query tenantId -o tsv)"
+
+echo "Defensive checks before running terraform"
+if ! command -v terraform >/dev/null 2>&1; then
+  echo "ERROR: terraform is not installed or not on PATH. Ensure the Terraform installer task ran earlier and added terraform to PATH."
+  exit 3
+fi
+terraform --version
+
+if [ ! -d "$WORKDIR" ]; then
+  echo "ERROR: working directory does not exist: $WORKDIR"
+  exit 4
+fi
+
+SA_RG="terraform-backend-rg"
+SA_LOCATION="westeurope"
+
+echo "Checking storage account $SA_NAME in resource group $SA_RG"
+SA_ID=$(az storage account show --name "$SA_NAME" --resource-group "$SA_RG" --query id -o tsv 2>/dev/null || true)
+if [ -z "$SA_ID" ]; then
+  echo "Storage account $SA_NAME not found in resource group $SA_RG. Attempting to create it..."
+  if [ "$(az group exists -n $SA_RG)" != "true" ]; then
+    echo "Resource group $SA_RG not found. Creating resource group $SA_RG in $SA_LOCATION"
+    az group create --name "$SA_RG" --location "$SA_LOCATION" || { echo "Failed to create resource group $SA_RG"; exit 1; }
+  fi
+  CREATE_OUTPUT=$(mktemp)
+  if az storage account create --name "$SA_NAME" --resource-group "$SA_RG" --location "$SA_LOCATION" --sku Standard_LRS --kind StorageV2 >"$CREATE_OUTPUT" 2>&1; then
+    SA_ID=$(az storage account show --name "$SA_NAME" --resource-group "$SA_RG" --query id -o tsv)
+    echo "Created storage account: $SA_ID"
+    echo "Creating blob container 'terraform-state' using AD auth (may require role assignment)"
+    az storage container create --account-name "$SA_NAME" --name terraform-state --auth-mode login || echo "Warning: failed to create container with AD auth. It may already exist or role assignment is required."
+  else
+    ERR=$(cat "$CREATE_OUTPUT")
+    echo "Storage account creation failed. az output:\n$ERR"
+    if echo "$ERR" | grep -qi "SubscriptionNotFound\|Subscription not found\|subscription.*not found"; then
+      cat <<'GUIDANCE'
+ERROR: The pipeline's service principal cannot create resources in the target subscription.
+
+Likely causes:
+ - The subscription ID does not exist or is not available to the service principal.
+ - The service principal lacks permissions to create resource groups or storage accounts in that subscription.
+
+Fix options:
+ 1) Create the backend storage account and container manually (recommended):
+    az group create --name terraform-backend-rg --location westeurope
+    az storage account create --name <STORAGE_ACCOUNT_NAME> --resource-group terraform-backend-rg --location westeurope --sku Standard_LRS --kind StorageV2
+    az storage container create --account-name <STORAGE_ACCOUNT_NAME> --name terraform-state --auth-mode login
+    # Then assign role to the service principal (run as subscription owner/admin):
+    SA_ID=$(az storage account show --name <STORAGE_ACCOUNT_NAME> --resource-group terraform-backend-rg --query id -o tsv)
+    az role assignment create --assignee <SERVICE_PRINCIPAL_CLIENT_ID> --role "Storage Blob Data Contributor" --scope "$SA_ID"
+
+ 2) Or grant the pipeline's service principal Contributor (or equivalent) on the subscription/resource group so it can create resources.
+
+After performing one of the fixes above, re-run the pipeline.
+GUIDANCE
+    else
+      echo "Storage account creation failed for an unknown reason. See the az output above for details and fix accordingly."
+    fi
+    rm -f "$CREATE_OUTPUT"
+    exit 1
+  fi
+else
+  echo "Found storage account: $SA_ID"
+fi
+
+if [ -n "$SA_ID" ]; then
+  echo "Ensuring service principal $ARM_CLIENT_ID has 'Storage Blob Data Contributor' on $SA_ID"
+  az role assignment create --assignee "$ARM_CLIENT_ID" --role "Storage Blob Data Contributor" --scope "$SA_ID" 2>/dev/null || echo "Warning: role assignment may have failed or already exists. Ensure the caller has permission to assign roles."
+fi
+
+echo 'Running terraform init'
+cd "$WORKDIR"
+terraform init -backend-config="resource_group_name=$SA_RG" -backend-config="storage_account_name=$SA_NAME" -backend-config="container_name=terraform-state" -backend-config="key=kubernetes-dev.tfstate"
+
+echo 'Running terraform apply'
+# pass secrets carefully; avoid echoing them
+terraform apply -auto-approve -var "client_id=$ARM_CLIENT_ID" -var "client_secret=$ARM_CLIENT_SECRET" -var "ssh_public_key=$PUBLICKEY_PATH"
