@@ -27,30 +27,40 @@ steps:
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
+      set -euo pipefail
+      echo 'Azure login info:'
       az account show
+
+      echo 'Defensive checks before running terraform'
+      if ! command -v terraform >/dev/null 2>&1; then
+        echo "ERROR: terraform is not installed or not on PATH. Ensure the Terraform installer task ran earlier and added terraform to PATH."
+        exit 1
+      fi
+      terraform --version
+
+      WORKDIR="$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
+      if [ ! -d "$WORKDIR" ]; then
+        echo "ERROR: working directory does not exist: $WORKDIR"
+        exit 1
+      fi
+
+      echo 'Running terraform init'
+      cd "$WORKDIR"
+      terraform init \
+        -backend-config="resource_group_name=terraform-backend-rg" \
+        -backend-config="storage_account_name=storageacctmanju1709968123" \
+        -backend-config="container_name=terraform-state" \
+        -backend-config="key=kubernetes-dev.tfstate"
+
+      echo 'Running terraform apply'
+      terraform apply -auto-approve \
+        -var "client_id=$(client_id)" \
+        -var "client_secret=$(client_secret)" \
+        -var "ssh_public_key=$(publickey.secureFilePath)"
 
 # 🧩 Run Terraform init
 
-# 🧩 Run Terraform init (scripted)
-- script: |
-    set -e
-    cd "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
-    terraform init \
-      -backend-config="resource_group_name=terraform-backend-rg" \
-      -backend-config="storage_account_name=storageacctmanju1709968123" \
-      -backend-config="container_name=terraform-state" \
-      -backend-config="key=kubernetes-dev.tfstate"
-  displayName: 'Terraform init (script)'
-
-# 🧩 Run Terraform apply (scripted)
-- script: |
-    set -e
-    cd "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
-    terraform apply -auto-approve \
-      -var "client_id=$(client_id)" \
-      -var "client_secret=$(client_secret)" \
-      -var "ssh_public_key=$(publickey.secureFilePath)"
-  displayName: 'Terraform apply (script)'
+# Terraform commands are executed in the AzureCLI task above so az login is available
 
 
 
