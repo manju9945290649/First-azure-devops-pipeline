@@ -29,6 +29,14 @@ steps:
       echo 'Azure login info:'
       az account show
       echo 'Defensive checks before running terraform'
+      # Set ARM service principal env vars so Terraform authenticates with SP (not Azure CLI user)
+      # client_id and client_secret are pipeline variables (secrets). Do not echo them.
+      export ARM_CLIENT_ID="$(client_id)"
+      export ARM_CLIENT_SECRET="$(client_secret)"
+      # Derive subscription and tenant from the logged-in az account
+      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+      export ARM_TENANT_ID="$(az account show --query tenantId -o tsv)"
+
       # Verify terraform is available
       if ! command -v terraform >/dev/null 2>&1; then
         echo "ERROR: terraform is not installed or not on PATH. Ensure the Terraform installer task ran earlier and added terraform to PATH."

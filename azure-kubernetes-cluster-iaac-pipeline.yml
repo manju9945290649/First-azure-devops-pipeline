@@ -32,6 +32,12 @@ steps:
       az account show
 
       echo 'Defensive checks before running terraform'
+      # Configure Terraform to use Service Principal auth via environment variables
+      export ARM_CLIENT_ID="$(client_id)"
+      export ARM_CLIENT_SECRET="$(client_secret)"
+      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+      export ARM_TENANT_ID="$(az account show --query tenantId -o tsv)"
+
       if ! command -v terraform >/dev/null 2>&1; then
         echo "ERROR: terraform is not installed or not on PATH. Ensure the Terraform installer task ran earlier and added terraform to PATH."
         exit 1
