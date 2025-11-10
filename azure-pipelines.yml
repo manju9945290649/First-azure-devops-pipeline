@@ -51,8 +51,9 @@ steps:
         exit 1
       fi
 
-      # Ensure backend storage account and container exist (create if missing)
-      SA_NAME="storageacctmanju17099"
+  # Ensure backend storage account and container exist (create if missing)
+  # storageAccountName is a pipeline variable (set in pipeline settings)
+  SA_NAME="$(storageAccountName)"
       SA_RG="terraform-backend-rg"
       SA_LOCATION="westeurope"
 
@@ -65,12 +66,44 @@ steps:
           echo "Resource group $SA_RG not found. Creating resource group $SA_RG in $SA_LOCATION"
           az group create --name "$SA_RG" --location "$SA_LOCATION" || { echo "Failed to create resource group $SA_RG"; exit 1; }
         fi
-        az storage account create --name "$SA_NAME" --resource-group "$SA_RG" --location "$SA_LOCATION" --sku Standard_LRS --kind StorageV2 || { echo "Failed to create storage account $SA_NAME"; exit 1; }
-        SA_ID=$(az storage account show --name "$SA_NAME" --resource-group "$SA_RG" --query id -o tsv)
-        echo "Created storage account: $SA_ID"
-        # Create container using login auth (SP must have rights)
-        echo "Creating blob container 'terraform-state' using AD auth (may require role assignment)"
-        az storage container create --account-name "$SA_NAME" --name terraform-state --auth-mode login || echo "Warning: failed to create container with AD auth. It may already exist or role assignment is required."
+        # Attempt to create the storage account; capture output to detect subscription-related errors
+        CREATE_OUTPUT=$(mktemp)
+        if az storage account create --name "$SA_NAME" --resource-group "$SA_RG" --location "$SA_LOCATION" --sku Standard_LRS --kind StorageV2 >"$CREATE_OUTPUT" 2>&1; then
+          SA_ID=$(az storage account show --name "$SA_NAME" --resource-group "$SA_RG" --query id -o tsv)
+          echo "Created storage account: $SA_ID"
+          echo "Creating blob container 'terraform-state' using AD auth (may require role assignment)"
+          az storage container create --account-name "$SA_NAME" --name terraform-state --auth-mode login || echo "Warning: failed to create container with AD auth. It may already exist or role assignment is required."
+        else
+          ERR=$(cat "$CREATE_OUTPUT")
+          echo "Storage account creation failed. az output:\n$ERR"
+          # Detect common subscription error and provide guidance
+          if echo "$ERR" | grep -qi "SubscriptionNotFound\|Subscription not found\|subscription.*not found"; then
+            cat <<'GUIDANCE'
+ERROR: The pipeline's service principal cannot create resources in the target subscription.
+
+Likely causes:
+ - The subscription ID does not exist or is not available to the service principal.
+ - The service principal lacks permissions to create resource groups or storage accounts in that subscription.
+
+Fix options:
+ 1) Create the backend storage account and container manually (recommended):
+    az group create --name terraform-backend-rg --location westeurope
+    az storage account create --name storageacctmanju17099 --resource-group terraform-backend-rg --location westeurope --sku Standard_LRS --kind StorageV2
+    az storage container create --account-name storageacctmanju17099 --name terraform-state --auth-mode login
+    # Then assign role to the service principal (run as subscription owner/admin):
+    SA_ID=$(az storage account show --name storageacctmanju17099 --resource-group terraform-backend-rg --query id -o tsv)
+    az role assignment create --assignee <SERVICE_PRINCIPAL_CLIENT_ID> --role "Storage Blob Data Contributor" --scope "$SA_ID"
+
+ 2) Or grant the pipeline's service principal Contributor (or equivalent) on the subscription/resource group so it can create resources.
+
+After performing one of the fixes above, re-run the pipeline.
+GUIDANCE
+          else
+            echo "Storage account creation failed for an unknown reason. See the az output above for details and fix accordingly."
+          fi
+          rm -f "$CREATE_OUTPUT"
+          exit 1
+        fi
       else
         echo "Found storage account: $SA_ID"
       fi
@@ -83,7 +116,7 @@ steps:
 
       echo 'Running terraform init'
       cd "$WORKDIR"
-      terraform init -backend-config="resource_group_name=terraform-backend-rg" -backend-config="storage_account_name=storageacctmanju17099" -backend-config="container_name=terraform-state" -backend-config="key=kubernetes-dev.tfstate"
+  terraform init -backend-config="resource_group_name=terraform-backend-rg" -backend-config="storage_account_name=$(storageAccountName)" -backend-config="container_name=terraform-state" -backend-config="key=kubernetes-dev.tfstate"
 
       echo 'Running terraform apply'
       terraform apply -auto-approve -var "client_id=$(client_id)" -var "client_secret=$(client_secret)" -var "ssh_public_key=$(publickey.secureFilePath)"
