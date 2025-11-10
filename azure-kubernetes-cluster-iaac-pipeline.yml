@@ -19,32 +19,38 @@ steps:
   inputs:
     terraformVersion: '1.6.6'
 
-# 🧩 Run Terraform init
-- task: TerraformCLI@2
+# 🧩 Azure CLI login
+- task: AzureCLI@2
+  displayName: 'Azure CLI: login with service connection'
   inputs:
-    command: 'init'
-    workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
-    backendType: 'azurerm'
-    backendServiceArm: 'azure-resource-service-manager'
-    backendAzureRmTenantId: 'aa227e14-bd54-40ea-be71-c11b5ef4f13c'
-    backendAzureRmSubscriptionId: 'b0d0d4d0-927a-42a0-abae-4df612c0dac1'
-    ensureBackend: true
-    backendAzureRmResourceGroupName: 'terraform-backend-rg'
-    backendAzureRmResourceGroupLocation: 'westeurope'
-    backendAzureRmStorageAccountName: 'storageacctmanju1709968123'
-    backendAzureRmContainerName: 'terraform-state'
-    backendAzureRmKey: 'kubernetes-dev.tfstate'
-    allowTelemetryCollection: true
+    azureSubscription: 'azure-resource-service-manager'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az account show
 
-- task: TerraformCLI@2
-  inputs:
-    command: 'apply'
-    workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
-    environmentServiceName: 'azure-resource-service-manager'
-    commandOptions: >
-      -var client_id=$(client_id)
-      -var client_secret=$(client_secret)
-      -var ssh_public_key=$(publickey.secureFilePath)
+# 🧩 Run Terraform init
+
+# 🧩 Run Terraform init (scripted)
+- script: |
+    set -e
+    cd "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
+    terraform init \
+      -backend-config="resource_group_name=terraform-backend-rg" \
+      -backend-config="storage_account_name=storageacctmanju1709968123" \
+      -backend-config="container_name=terraform-state" \
+      -backend-config="key=kubernetes-dev.tfstate"
+  displayName: 'Terraform init (script)'
+
+# 🧩 Run Terraform apply (scripted)
+- script: |
+    set -e
+    cd "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
+    terraform apply -auto-approve \
+      -var "client_id=$(client_id)" \
+      -var "client_secret=$(client_secret)" \
+      -var "ssh_public_key=$(publickey.secureFilePath)"
+  displayName: 'Terraform apply (script)'
 
 
 

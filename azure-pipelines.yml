@@ -1,70 +1,128 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-  branches:
-    include:
-      - main
+  - main
 
 pool:
   vmImage: 'ubuntu-latest'
 
-stages:
-- stage: build
-  jobs:
-  - job: FirstJob
-    steps:
-    - bash: |
-        echo "Build FirstJob"
+steps:
+- script: echo "K8S Terraform Azure!"
+  displayName: 'Run a one-line script'
 
-    - bash: |
-        echo $(PipelineLevelVariable)
+- task: DownloadSecureFile@1
+  name: publickey
+  inputs:
+    secureFile: 'azure_rsa.pub'
 
-    - bash: |
-        echo $(Build.BuildNumber)
+# 🧩 Install Terraform (Fully Qualified Task)
+- task: JasonBJohnson.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-installer.TerraformInstaller@1
+  displayName: 'Install Terraform'
 
-    - bash: |
-        echo $(Build.BuildId)
+# 🧩 Azure CLI login
+- task: AzureCLI@2
+  displayName: 'Azure CLI: login with service connection'
+  inputs:
+    azureSubscription: 'azure-resource-service-manager'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az account show
 
-    - bash: |
-        echo $(Build.SourceBranchName)
+# 🧩 Run Terraform init (scripted)
+- script: |
+    set -e
+    cd "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
+    terraform init \
+      -backend-config="resource_group_name=terraform-backend-rg" \
+      -backend-config="storage_account_name=storageacctmanju1709968123" \
+      -backend-config="container_name=terraform-state" \
+      -backend-config="key=kubernetes-dev.tfstate"
+  displayName: 'Terraform init (script)'
 
-    - bash: |
-        echo $(Build.SourcesDirectory)
+# 🧩 Run Terraform apply (scripted)
+- script: |
+    set -e
+    cd "$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes"
+    terraform apply -auto-approve \
+      -var "client_id=$(client_id)" \
+      -var "client_secret=$(client_secret)" \
+      -var "ssh_public_key=$(publickey.secureFilePath)"
+  displayName: 'Terraform apply (script)'
 
-    - bash: |
-        echo $(System.DefaultWorkingDirectory)
 
-    - bash: |
-        ls -R $(System.DefaultWorkingDirectory)
 
-    - bash: |
-        echo $(Build.ArtifactStagingDirectory)
 
-    - bash: |
-        java -version
-        node --version
-        python3 --version
-        mvn -version
 
-    - bash: |
-        ls -R '$(Build.ArtifactStagingDirectory)'
 
-    - task: CopyFiles@2
-      inputs:
-        SourceFolder: '$(System.DefaultWorkingDirectory)'
-        Contents: |
-          **/*.yaml
-          **/*.tf
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-    - task: PublishBuildArtifacts@1
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: 'drop'
-        publishLocation: 'Container'
+
+
+
+
+
+
+
+# trigger:
+#   branches:
+#     include:
+#       - main
+
+# pool:
+#   vmImage: 'ubuntu-latest'
+
+# stages:
+# - stage: build
+#   jobs:
+#   - job: FirstJob
+#     steps:
+#     - bash: |
+#         echo "Build FirstJob"
+
+#     - bash: |
+#         echo $(PipelineLevelVariable)
+
+#     - bash: |
+#         echo $(Build.BuildNumber)
+
+#     - bash: |
+#         echo $(Build.BuildId)
+
+#     - bash: |
+#         echo $(Build.SourceBranchName)
+
+#     - bash: |
+#         echo $(Build.SourcesDirectory)
+
+#     - bash: |
+#         echo $(System.DefaultWorkingDirectory)
+
+#     - bash: |
+#         ls -R $(System.DefaultWorkingDirectory)
+
+#     - bash: |
+#         echo $(Build.ArtifactStagingDirectory)
+
+#     - bash: |
+#         java -version
+#         node --version
+#         python3 --version
+#         mvn -version
+
+#     - bash: |
+#         ls -R '$(Build.ArtifactStagingDirectory)'
+
+#     - task: CopyFiles@2
+#       inputs:
+#         SourceFolder: '$(System.DefaultWorkingDirectory)'
+#         Contents: |
+#           **/*.yaml
+#           **/*.tf
+#         TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+#     - task: PublishBuildArtifacts@1
+#       inputs:
+#         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+#         ArtifactName: 'drop'
+#         publishLocation: 'Container'
 
   
 
