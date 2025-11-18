@@ -23,7 +23,7 @@ stages:
     steps:
     - task: Docker@2
       inputs:
-        containerRegistry: 'azure-resource-service-manager'
+        containerRegistry: 'Manju dockerhub'
         repository: 'manju9945290649/currency-exchange-devops'
         command: 'buildAndPush'
         Dockerfile: '**/Dockerfile'
